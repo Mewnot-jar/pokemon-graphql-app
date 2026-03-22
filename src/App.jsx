@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useQuery, useLazyQuery } from "@apollo/client/react";
-import { GET_POKEMON_LIST, GET_POKEMON_BY_NAME } from "./graphql/queries";
+import { GET_POKEMON_LIST, GET_POKEMON_BY_NAME, GET_POKEMON_BY_ID, GET_POKEMON_BY_TYPE } from "./graphql/queries";
 import PokemonCard from "./components/PokemonCard";
 import SearchBar from "./components/SearchBar";
+import SearchModeSelector from "./components/SearchModeSelector";
+import TypeSelect from "./components/TypeSelect";
 
 export default function App() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchedPokemon, setSearchedPokemon] = useState([]);
   const [isShowingSearch, setIsShowingSearch] = useState(false);
+  const [searchMode, setSearchMode] = useState("name");
 
   const limit = 12;
   const offset = (currentPage - 1) * limit;
@@ -18,35 +21,102 @@ export default function App() {
   });
 
   const [getPokemonByName, { loading: searching, error: searchError }] =
-  useLazyQuery(GET_POKEMON_BY_NAME, {
-    fetchPolicy: "network-only",
+    useLazyQuery(GET_POKEMON_BY_NAME, {
+      fetchPolicy: "network-only",
+  });
+  const [getPokemonById, { loading: searchingById, error: searchByIdError }] =
+    useLazyQuery(GET_POKEMON_BY_ID, {
+      fetchPolicy: "network-only",
+  });
+  const [getPokemonByType, { loading: searchingByType, error: searchByTypeError }] =
+    useLazyQuery(GET_POKEMON_BY_TYPE, {
+      fetchPolicy: "network-only",
   });
 
-  const handleSearch = async () => {
-  const trimmed = search.toLowerCase().trim();
-  if (!trimmed) return;
-
-  setIsShowingSearch(true);
-  setSearchedPokemon([]);
-
-  try {
-    const result = await getPokemonByName({
-      variables: { name: trimmed },
-    });
-
-    setSearchedPokemon(result.data?.pokemon || []);
-  } catch (error) {
-    setSearchedPokemon([]);
-    console.error(error);
+  const isSearching = searching || searchingById || searchingByType;
+  const currentSearchError = searchError || searchByIdError || searchByTypeError
+  
+  const fetchPokemonByType = async (typeValue, page = currentPage) => {
+    const pageOffset = (page - 1) * limit
+    try{
+      const result = await getPokemonByType({
+        variables: {
+          type: typeValue.toLowerCase().trim(),
+          limit,
+          offset: pageOffset,
+        },
+      })
+      setSearchedPokemon(result.data?.pokemon || [])
+    }catch(error){
+      setSearchedPokemon([])
+      console.log(error)
+    }
   }
+
+  const handleSearch = async () => {
+    const trimmed = search.toLowerCase().trim();
+    if (!trimmed) return;
+
+    setIsShowingSearch(true);
+    setSearchedPokemon([]);
+
+    try {
+      if(searchMode === "name"){
+        const result = await getPokemonByName({
+          variables: { name: trimmed },
+        });
+        setSearchedPokemon(result.data?.pokemon || []);
+        return;
+      }
+      if(searchMode === "pokedexNumber"){
+        const pokemonId = Number(trimmed);
+        if(Number.isNaN(pokemonId) || pokemonId <= 0){
+          setSearchedPokemon([])
+          return;
+        }
+        const result = await getPokemonById({
+          variables: {id: pokemonId},
+        })
+        setSearchedPokemon(result.data?.pokemon || []);
+        return;
+      }
+      if(searchMode === "type"){
+        setCurrentPage(1)
+        await fetchPokemonByType(trimmed, 1)
+        return  
+      }
+      alert("Ese criterio de busqueda aun no esta implementado")
+      setSearchedPokemon([])
+    } catch (error) {
+      setSearchedPokemon([]);
+      console.error(error);
+    }
+  };
+  const handleClearFilters = () => {
+  setSearch("");
+  setSearchMode("name"); // opcional, puedes dejar el modo actual si quieres
+  setSearchedPokemon([]);
+  setIsShowingSearch(false);
+  setCurrentPage(1);
 };
 
-  const handleClearSearch = () => {
-    setSearch("");
-    setSearchedPokemon([]);
-    setIsShowingSearch(false);
+  const handleChangeSearchMode = (mode) => {
+    setSearchMode(mode)
+    setSearch("")
+    setSearchedPokemon([])
+    setIsShowingSearch(false)
+    setCurrentPage(1)
+  }
+
+  const getPlaceholder = () => {
+    if (searchMode === "name") return "Ej: pikachu";
+    if (searchMode === "pokedexNumber") return "Ej: 25";
+    if (searchMode === "generation") return "Ej: 1";
+    return "";
   };
 
+  const isTypeSearch = isShowingSearch && searchMode === "type"
+  const showPagination = !isShowingSearch || isTypeSearch
   const pokemons = isShowingSearch ? searchedPokemon : data?.pokemon || [];
 
   return (
@@ -60,21 +130,36 @@ export default function App() {
     >
       <h1>Pokedex con React + GraphQL</h1>
 
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-        onSearch={handleSearch}
+      <SearchModeSelector
+        searchMode={searchMode}
+        onChange={handleChangeSearchMode}
       />
 
-      {isShowingSearch && (
-        <button onClick={handleClearSearch} style={{ marginBottom: "20px" }}>
-          Volver a la lista
+      {searchMode === "type" ? (
+        <div>
+          <TypeSelect value={search} onChange={setSearch}/>
+          <button onClick={handleSearch}>Buscar</button>
+        </div>
+      ):(
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          onSearch={handleSearch}
+          placeholder={getPlaceholder()}
+        />
+      )}
+
+      
+      
+      {isShowingSearch &&(
+        <button onClick={handleClearFilters} style={{ marginBottom: "20px" }}>
+          Limpiar Filtro
         </button>
       )}
 
-      {(loading || searching) && <p>Cargando...</p>}
+      {(loading || isSearching) && <p>Cargando...</p>}
       {error && <p>Error al cargar lista: {error.message}</p>}
-      {searchError && <p>Error en búsqueda: {searchError.message}</p>}
+      {currentSearchError && <p>Error en búsqueda: {currentSearchError.message}</p>}
 
       {!loading && !searching && isShowingSearch && searchedPokemon.length === 0 && !searchError && (
         <p>No se encontró ese Pokémon.</p>
@@ -93,10 +178,16 @@ export default function App() {
         ))}
       </div>
 
-      {!isShowingSearch && (
+      {showPagination &&(
         <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
           <button
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            onClick={async () => {
+              const newPage = Math.max(currentPage - 1, 1)
+              setCurrentPage(newPage)
+              if(isShowingSearch && searchMode === "type"){
+                await fetchPokemonByType(search, newPage)
+              }
+            }}
             disabled={currentPage === 1}
           >
             Anterior
@@ -104,7 +195,13 @@ export default function App() {
 
           <span>Pagina {currentPage}</span>
 
-          <button onClick={() => setCurrentPage((prev) => prev + 1)}>
+          <button onClick={async () => {
+            const newPage = currentPage + 1
+            setCurrentPage(newPage)
+            if(isShowingSearch && searchMode === "type"){
+              await fetchPokemonByType(search, newPage)
+            }
+          }}>
             Siguiente
           </button>
         </div>

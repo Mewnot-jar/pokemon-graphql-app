@@ -1,9 +1,9 @@
-export default function SearchBar({value, onChange, onSearch}){
+export default function SearchBar({value, onChange, onSearch, placeholder}){
     return(
         <div style={{display: "flex", gap: "10px", marginBottom: "20px"}}>
             <input
                 type="text"
-                placeholder="Ej: Pikachu"
+                placeholder={placeholder}
                 value={value}
                 onChange={(e)=> onChange(e.target.value)}
                 style={{

@@ -37,9 +37,27 @@ export const GET_POKEMON_BY_NAME = gql`
     }
   }
 `;
-export const GET_POKEMON_BY_NUMBER = gql`
-  query GetPokemonByName($id: Int!) {
+export const GET_POKEMON_BY_ID = gql`
+  query GetPokemonById($id: Int!) {
     pokemon(where: { id: { _eq: $id } }) {
+      id
+      name
+      height
+      weight
+      pokemonsprites(limit: 1) {
+        sprites
+      }
+      pokemontypes {
+        type {
+          name
+        }
+      }
+    }
+  }
+`;
+export const GET_POKEMON_BY_TYPE = gql`
+  query GetPokemonByType($limit: Int!, $offset: Int!, $type: String!) {
+    pokemon(limit: $limit, offset: $offset, order_by: { id: asc }, where: {pokemontypes: {type: {name: {_eq: $type}}}}) {
       id
       name
       height
