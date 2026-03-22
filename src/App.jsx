@@ -146,6 +146,7 @@ export default function App() {
   const isGenerationSearch = isShowingSearch && searchMode === "generation";
   const showPagination = !isShowingSearch || isTypeSearch || isGenerationSearch;
   const pokemons = isShowingSearch ? searchedPokemon : data?.pokemon || [];
+  const isLastPage = pokemons.length < limit;
 
   return (
     <div
@@ -231,16 +232,19 @@ export default function App() {
 
           <span>Pagina {currentPage}</span>
 
-          <button onClick={async () => {
-            const newPage = currentPage + 1
-            setCurrentPage(newPage)
-            if(isShowingSearch && searchMode === "type"){
-              await fetchPokemonByType(search, newPage)
-            }
-            if(isShowingSearch && searchMode === "generation"){
-              await fetchPokemonByGeneration(search, newPage)
-            }
-          }}>
+          <button 
+            onClick={async () => {
+              const newPage = currentPage + 1
+              setCurrentPage(newPage)
+              if(isShowingSearch && searchMode === "type"){
+                await fetchPokemonByType(search, newPage)
+              }
+              if(isShowingSearch && searchMode === "generation"){
+                await fetchPokemonByGeneration(search, newPage)
+              }
+            }}
+            disabled={isLastPage}
+          >
             Siguiente
           </button>
         </div>
