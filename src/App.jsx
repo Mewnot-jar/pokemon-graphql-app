@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery, useLazyQuery } from "@apollo/client/react";
-import { GET_POKEMON_LIST, GET_POKEMON_BY_NAME, GET_POKEMON_BY_ID, GET_POKEMON_BY_TYPE } from "./graphql/queries";
+import { GET_POKEMON_LIST, GET_POKEMON_BY_NAME, GET_POKEMON_BY_ID, GET_POKEMON_BY_TYPE, GET_POKEMON_BY_GENERATION } from "./graphql/queries";
 import PokemonCard from "./components/PokemonCard";
 import SearchBar from "./components/SearchBar";
 import SearchModeSelector from "./components/SearchModeSelector";
 import TypeSelect from "./components/TypeSelect";
+import GenerationSelect from "./components/GenerationSelect";
 
 export default function App() {
   const [search, setSearch] = useState("");
@@ -32,9 +33,13 @@ export default function App() {
     useLazyQuery(GET_POKEMON_BY_TYPE, {
       fetchPolicy: "network-only",
   });
+  const [getPokemonByGeneration, { loading: searchingByGeneration, error: searchByGeneration }] =
+    useLazyQuery(GET_POKEMON_BY_GENERATION, {
+      fetchPolicy: "network-only",
+  });
 
-  const isSearching = searching || searchingById || searchingByType;
-  const currentSearchError = searchError || searchByIdError || searchByTypeError
+  const isSearching = searching || searchingById || searchingByType || searchingByGeneration;
+  const currentSearchError = searchError || searchByIdError || searchByTypeError || searchByGeneration;
   
   const fetchPokemonByType = async (typeValue, page = currentPage) => {
     const pageOffset = (page - 1) * limit
@@ -42,6 +47,23 @@ export default function App() {
       const result = await getPokemonByType({
         variables: {
           type: typeValue.toLowerCase().trim(),
+          limit,
+          offset: pageOffset,
+        },
+      })
+      setSearchedPokemon(result.data?.pokemon || [])
+    }catch(error){
+      setSearchedPokemon([])
+      console.log(error)
+    }
+  }
+
+  const fetchPokemonByGeneration = async (generationValue, page = currentPage) => {
+    const pageOffset = (page - 1) * limit
+    try{
+      const result = await getPokemonByGeneration({
+        variables: {
+          id: generationValue,
           limit,
           offset: pageOffset,
         },
@@ -85,6 +107,11 @@ export default function App() {
         await fetchPokemonByType(trimmed, 1)
         return  
       }
+      if(searchMode === "generation"){
+        setCurrentPage(1)
+        await fetchPokemonByGeneration(trimmed, 1)
+        return  
+      }
       alert("Ese criterio de busqueda aun no esta implementado")
       setSearchedPokemon([])
     } catch (error) {
@@ -115,8 +142,9 @@ export default function App() {
     return "";
   };
 
-  const isTypeSearch = isShowingSearch && searchMode === "type"
-  const showPagination = !isShowingSearch || isTypeSearch
+  const isTypeSearch = isShowingSearch && searchMode === "type";
+  const isGenerationSearch = isShowingSearch && searchMode === "generation";
+  const showPagination = !isShowingSearch || isTypeSearch || isGenerationSearch;
   const pokemons = isShowingSearch ? searchedPokemon : data?.pokemon || [];
 
   return (
@@ -138,6 +166,11 @@ export default function App() {
       {searchMode === "type" ? (
         <div>
           <TypeSelect value={search} onChange={setSearch}/>
+          <button onClick={handleSearch}>Buscar</button>
+        </div>
+      ): searchMode === "generation" ?(
+        <div>
+          <GenerationSelect value={search} onChange={setSearch}/>
           <button onClick={handleSearch}>Buscar</button>
         </div>
       ):(
@@ -187,6 +220,9 @@ export default function App() {
               if(isShowingSearch && searchMode === "type"){
                 await fetchPokemonByType(search, newPage)
               }
+              if(isShowingSearch && searchMode === "generation"){
+                await fetchPokemonByGeneration(search, newPage)
+              }
             }}
             disabled={currentPage === 1}
           >
@@ -200,6 +236,9 @@ export default function App() {
             setCurrentPage(newPage)
             if(isShowingSearch && searchMode === "type"){
               await fetchPokemonByType(search, newPage)
+            }
+            if(isShowingSearch && searchMode === "generation"){
+              await fetchPokemonByGeneration(search, newPage)
             }
           }}>
             Siguiente

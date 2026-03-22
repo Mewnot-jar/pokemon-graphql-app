@@ -1,29 +1,13 @@
-const POKEMON_TYPES = [
-  "normal",
-  "fire",
-  "water",
-  "electric",
-  "grass",
-  "ice",
-  "fighting",
-  "poison",
-  "ground",
-  "flying",
-  "psychic",
-  "bug",
-  "rock",
-  "ghost",
-  "dragon",
-  "dark",
-  "steel",
-  "fairy",
-];
-
-export default function TypeSelect({value, onChange}){
-    return(
+import { useQuery } from "@apollo/client/react";
+import { GET_TYPES } from "../graphql/queries";
+export default function TypeSelect({ value, onChange }) {
+    const { data, loading, error } = useQuery(GET_TYPES);
+    if (loading) return <p>Cargando Tipos...</p>;
+    if (error) return <p>Error al cargar tipos</p>;
+    return (
         <div style={{ marginBottom: "20px" }}>
-            <select 
-                value={value} 
+            <select
+                value={value}
                 onChange={(e) => onChange(e.target.value)}
                 style={{
                     padding: "10px",
@@ -33,9 +17,9 @@ export default function TypeSelect({value, onChange}){
                 }}
             >
                 <option value="">Selecciona un tipo</option>
-                {POKEMON_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                        {type.charAt(0).toUpperCase() + type.slice(1)}
+                {data.type.map((type) => (
+                    <option key={type.id} value={type.name}>
+                        {type.name.charAt(0).toUpperCase() + type.name.slice(1)}
                     </option>
                 ))}
             </select>
